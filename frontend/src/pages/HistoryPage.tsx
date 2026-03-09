@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { getExpenses, createExpense } from "../services/api";
-import { Expense, ExpenseFormData } from "../types";
+/**
+ * Page component for viewing and managing expense history
+ * Integrates year/month navigation, category breakdown, calendar table, and add expense modal
+ */
+
+import React, { useState } from "react";
 import YearNavigation from "../components/YearNavigation";
 import { MonthNavigation } from "../components/MonthNavigation";
 import CategoryBreakdown from "../components/CategoryBreakdown";
@@ -8,81 +11,33 @@ import { CalendarExpenseTable } from "../components/CalendarExpenseTable";
 import { ExpenseForm } from "../components/ExpenseForm";
 import { Modal, Button } from "../vibes";
 import { COLORS } from "../constants/colors";
+import useGetExpenses from "../hooks/expenses/useGetExpenses"
+import useGetCategories from "../hooks/categories/useGetCategories"
 
 const HistoryPage: React.FC = () => {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // Modal state for adding a new expense
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Get year and month from URL params, default to current date if not provided
-  const getInitialYearMonth = () => {
-    const params = new URLSearchParams(window.location.search);
-    const currentDate = new Date();
-    const yearParam = params.get("year");
-    const monthParam = params.get("month");
+  // Hook to fetch and manage expenses, filtering by year/month
+  const {
+    handleMonthChange,
+    handleYearChange,
+    params,
+    expenses,
+    getExpenses,
+    isLoading
+  } = useGetExpenses();
 
-    return {
-      year: yearParam ? parseInt(yearParam) : currentDate.getFullYear(),
-      month: monthParam ? parseInt(monthParam) : currentDate.getMonth() + 1,
-    };
-  };
+  // Hook to fetch categories from the backend
+  const {
+    categoriesFetch
+  } = useGetCategories();
 
-  const initial = getInitialYearMonth();
-  const [selectedYear, setSelectedYear] = useState(initial.year);
-  const [selectedMonth, setSelectedMonth] = useState(initial.month);
-
-  // Update URL when year or month changes
-  const updateURL = (year: number, month: number) => {
-    const params = new URLSearchParams();
-    params.set("year", year.toString());
-    params.set("month", month.toString());
-    const newURL = `${window.location.pathname}?${params.toString()}`;
-    window.history.pushState({}, "", newURL);
-  };
-
-  // Initialize URL params if not present
-  useEffect(() => {
-    updateURL(selectedYear, selectedMonth);
-  }, []);
-
-  useEffect(() => {
-    fetchExpenses();
-  }, [selectedYear, selectedMonth]);
-
-  const fetchExpenses = async () => {
-    try {
-      setLoading(true);
-      const data = await getExpenses(selectedYear, selectedMonth);
-      setExpenses(data);
-    } catch (error) {
-      console.error("Error fetching expenses:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleYearChange = (year: number) => {
-    setSelectedYear(year);
-    updateURL(year, selectedMonth);
-  };
-
-  const handleMonthChange = (month: number) => {
-    setSelectedMonth(month);
-    updateURL(selectedYear, month);
-  };
-
-  const handleAddExpense = async (data: ExpenseFormData) => {
-    try {
-      await createExpense(data);
-      setIsModalOpen(false);
-      fetchExpenses();
-    } catch (error) {
-      console.error("Error creating expense:", error);
-      throw error;
-    }
-  };
-
-  // Calculate category breakdown
+  /**
+   * Calculate category breakdown for summary view
+   * Aggregates amount and count per category
+   */
   const categoryData = expenses.reduce(
     (acc, expense) => {
       const category = expense.category || "Uncategorized";
@@ -96,12 +51,16 @@ const HistoryPage: React.FC = () => {
     {} as Record<string, { category: string; amount: number; count: number }>,
   );
 
+  // Sort categories by amount descending
   const categories = Object.values(categoryData).sort(
     (a, b) => b.amount - a.amount,
   );
+
+  // Calculate total amount and total count for summary
   const total = categories.reduce((sum, cat) => sum + cat.amount, 0);
   const totalCount = categories.reduce((sum, cat) => sum + cat.count, 0);
 
+  // Page and layout styles
   const pageStyle: React.CSSProperties = {
     padding: "48px 64px",
     minHeight: "100vh",
@@ -140,11 +99,12 @@ const HistoryPage: React.FC = () => {
 
   return (
     <div style={pageStyle}>
+      {/* Page header with title, year navigation, and add expense button */}
       <div style={headerStyle}>
         <div style={leftHeaderStyle}>
           <h1 style={titleStyle}>Expense History</h1>
           <YearNavigation
-            currentYear={selectedYear}
+            currentYear={params?.year!}
             onYearChange={handleYearChange}
           />
         </div>
@@ -153,40 +113,48 @@ const HistoryPage: React.FC = () => {
         </Button>
       </div>
 
+      {/* Month navigation component */}
       <MonthNavigation
-        currentMonth={selectedMonth}
-        currentYear={selectedYear}
+        currentMonth={params?.month!}
+        currentYear={params?.year!}
         onMonthChange={handleMonthChange}
       />
 
       <div>
-        {loading ? (
+        {isLoading ? (
+          // Show loading state while fetching expenses
           <div style={loadingStyle}>Loading...</div>
         ) : (
           <>
+            {/* Category breakdown summary */}
             <CategoryBreakdown
               categories={categories}
               total={total}
               totalCount={totalCount}
             />
             <div style={{ marginTop: "32px" }}>
+              {/* Table showing individual expenses */}
               <CalendarExpenseTable
+                categoriesFetch={categoriesFetch}
+                getExpenses={getExpenses}
                 expenses={expenses}
-                onExpenseUpdated={fetchExpenses}
               />
             </div>
           </>
         )}
       </div>
 
+      {/* Modal for adding a new expense */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Add New Expense"
       >
         <ExpenseForm
-          onSubmit={handleAddExpense}
+          categories={categoriesFetch}
           onCancel={() => setIsModalOpen(false)}
+          setIsModalOpen={setIsModalOpen}
+          getExpenses={getExpenses}
         />
       </Modal>
     </div>

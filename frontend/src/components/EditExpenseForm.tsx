@@ -1,62 +1,70 @@
-/**
- * Form component for adding a new expense
- * Uses useCreateExpenses hook for form state, validation, and submission
- */
-
 import React from "react";
 import { TextField, SelectBox, Button } from "../vibes";
-import useCreateExpenses from "../../src/hooks/expenses/useCreateExpenses";
+import useEditExpenses from "../../src/hooks/expenses/useEditExpenses";
 import { Category } from "../services/categories/types";
+import { TExpense } from "../services/expenses/types";
 
 /**
- * Props for ExpenseForm component
+ * Props for EditExpenseForm component
  */
-interface ExpenseFormProps {
+interface EditExpenseFormProps {
+  initialData: TExpense;                                         // Existing expense to prefill form
   categories: Category[];                                         // List of categories for dropdown
-  setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;  // Function to control modal visibility
-  getExpenses: () => Promise<void>;                               // Function to refresh expense list after creation
-  onCancel?: () => void;                                          // Optional cancel handler
+  setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;  // Modal visibility control
+  getExpenses: () => Promise<void>;                               // Function to refresh expenses list
   submitLabel?: string;                                           // Optional label for submit button
 }
 
 /**
- * Form component for creating a new expense
- * Handles input changes, validation, API submission, and error display
+ * Form component for editing an existing expense
+ * Uses useEditExpenses hook for managing state, validation, and API calls
  */
-export function ExpenseForm({
+export function EditExpenseForm({
+  initialData,
   categories,
   setIsModalOpen,
   getExpenses,
-  onCancel,
   submitLabel = "Add Expense",
-}: ExpenseFormProps) {
+}: EditExpenseFormProps) {
 
-  // Destructure custom hook to handle form logic
+  // Destructure custom hook to manage form logic
   const {
-    createExpenses,  // Function to submit expense form
-    handleChange,    // Handles input changes
-    errors,          // Validation and API errors
-    isSubmitting,    // Loading state during submission
-    formData         // Current form data
-  } = useCreateExpenses({
+    editExpenses,   // Function to submit edited expense
+    params,         // Current form values
+    errors,         // Validation or API errors
+    loading,        // Loading state for submission
+    handleChange    // Handler for input changes
+  } = useEditExpenses({
+    initialData,
+    initialCategoryId: Number(categories.find(
+      (cat) => cat.name === initialData.category
+    )),
     setIsModalOpen,
-    getExpenses
+    getExpenses,
   });
 
-  // Map categories to select options
+  /**
+   * Close modal without submitting
+   */
+  const onCancel = () => {
+    setIsModalOpen(false);
+  }
+
+  /**
+   * Map categories to select options
+   */
   const categoryOptions = categories.map((category) => ({
     value: category.id.toString(),
     label: category.name,
   }));
 
-  // CSS for form layout
+  // Styles for form layout
   const formStyle: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
     gap: "1rem",
   };
 
-  // CSS for submit/cancel buttons
   const buttonGroupStyle: React.CSSProperties = {
     display: "flex",
     gap: "0.5rem",
@@ -67,40 +75,40 @@ export function ExpenseForm({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        createExpenses(); // Submit form
+        editExpenses(initialData.id); // Submit edited expense
       }}
       style={formStyle}
     >
-      {/* Amount input */}
+      {/* Amount input field */}
       <TextField
         label="Amount"
         type="number"
         step="0.01"
         placeholder="0.00"
-        value={formData.amount}
+        value={params.amount}
         onChange={(e) => handleChange({ field: "amount", value: e.target.value })}
         error={errors.amount}
         fullWidth
         required
       />
 
-      {/* Description input */}
+      {/* Description input field */}
       <TextField
         label="Description"
         type="text"
         placeholder="Enter description"
-        value={formData.description}
+        value={params.description}
         onChange={(e) => handleChange({ field: "description", value: e.target.value })}
         error={errors.description}
         fullWidth
         required
       />
 
-      {/* Category select */}
+      {/* Category select dropdown */}
       <SelectBox
         label="Category"
         options={categoryOptions}
-        value={formData.category_id}
+        value={params.category_id}
         onChange={(e) =>
           handleChange({ field: "category_id", value: e.target.value })
         }
@@ -109,18 +117,18 @@ export function ExpenseForm({
         required
       />
 
-      {/* Date input */}
+      {/* Date input field */}
       <TextField
         label="Date"
         type="date"
-        value={formData.date}
+        value={params.date}
         onChange={(e) => handleChange({ field: "date", value: e.target.value })}
         error={errors.date}
         fullWidth
         required
       />
 
-      {/* Display general API errors */}
+      {/* Display general errors */}
       {errors.general && (
         <div style={{ color: "red", marginBottom: "0.5rem" }}>
           {errors.general}
@@ -132,17 +140,17 @@ export function ExpenseForm({
         <Button
           type="submit"
           variant="primary"
-          disabled={isSubmitting}
+          disabled={loading}
           fullWidth
         >
-          {isSubmitting ? "Submitting..." : submitLabel}
+          {loading ? "Submitting..." : submitLabel}
         </Button>
         {onCancel && (
           <Button
             type="button"
             variant="secondary"
             onClick={onCancel}
-            disabled={isSubmitting}
+            disabled={loading}
           >
             Cancel
           </Button>
