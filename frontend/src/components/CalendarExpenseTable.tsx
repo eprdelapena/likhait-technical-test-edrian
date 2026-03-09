@@ -1,74 +1,54 @@
 /**
- * Calendar expense table component
+ * CalendarExpenseTable component
+ * 
+ * Displays a paginated table of expenses with options to edit or delete each expense.
+ * Handles modal visibility, page state, and renders category emojis.
  */
 
 import React, { useState } from "react";
-import { Expense, ExpenseFormData } from "../types";
+import { Expense } from "../types";
 import { formatCurrency, formatDate } from "../utils/expenseUtils";
 import { getCategoryEmoji } from "../constants/categoryEmojis";
 import { COLORS } from "../constants/colors";
 import { Button, Modal, Pagination } from "../vibes";
-import { ExpenseForm } from "./ExpenseForm.tsx";
-import { deleteExpense, updateExpense } from "../services/api";
+import { EditExpenseForm } from "../components/EditExpenseForm";
+import { TCreateExpensePayload } from "../services/expenses/types.ts";
+import CDeleteExpense from "../components/DeleteExpense";
+import { Category } from "../services/categories/types.ts";
 
 interface CalendarExpenseTableProps {
-  expenses: Expense[];
-  onExpenseUpdated: () => void;
+  categoriesFetch: Category[];                 // List of categories fetched from API
+  getExpenses: () => Promise<void>;           // Function to refresh expenses
+  initialData?: Partial<TCreateExpensePayload["expense"]>; // Optional initial data for form
+  expenses: Expense[];                        // Array of expenses to display
 }
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 10; // Number of expenses per page
 
 export function CalendarExpenseTable({
+  getExpenses,
+  categoriesFetch,
   expenses,
-  onExpenseUpdated,
 }: CalendarExpenseTableProps) {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);         // Tracks current pagination page
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null); // Expense being edited
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);               // Edit modal visibility
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);           // Delete modal visibility
 
-  const totalPages = Math.ceil(expenses.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentExpenses = expenses.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(expenses.length / ITEMS_PER_PAGE); // Total number of pages
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;         // Start index for current page
+  const endIndex = startIndex + ITEMS_PER_PAGE;                  // End index for current page
+  const currentExpenses = expenses.slice(startIndex, endIndex); // Expenses to display on current page
 
+  /**
+   * Open edit modal for selected expense
+   */
   const handleEdit = (expense: Expense) => {
     setEditingExpense(expense);
     setIsEditModalOpen(true);
   };
 
-  const handleDelete = (expense: Expense) => {
-    setDeletingExpense(expense);
-    setIsDeleteModalOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!deletingExpense) return;
-    try {
-      await deleteExpense(deletingExpense.id);
-      setIsDeleteModalOpen(false);
-      setDeletingExpense(null);
-      onExpenseUpdated();
-    } catch (error) {
-      console.error("Failed to delete expense:", error);
-      alert("Failed to delete expense");
-    }
-  };
-
-  const handleUpdate = async (data: ExpenseFormData) => {
-    if (!editingExpense) return;
-    try {
-      await updateExpense(editingExpense.id, data);
-      setIsEditModalOpen(false);
-      setEditingExpense(null);
-      onExpenseUpdated();
-    } catch (error) {
-      console.error("Failed to update expense:", error);
-      throw error;
-    }
-  };
-
+  // Table styling
   const tableStyle: React.CSSProperties = {
     width: "100%",
     borderCollapse: "collapse",
@@ -107,6 +87,7 @@ export function CalendarExpenseTable({
     gap: "0.5rem",
   };
 
+  // Show message if no expenses are available
   if (expenses.length === 0) {
     return (
       <div style={tableStyle}>
@@ -151,6 +132,7 @@ export function CalendarExpenseTable({
               </td>
               <td style={{ ...tdStyle, textAlign: "center" }}>
                 <div style={actionButtonsStyle}>
+                  {/* Edit button */}
                   <Button
                     variant="secondary"
                     size="small"
@@ -158,13 +140,52 @@ export function CalendarExpenseTable({
                   >
                     Edit
                   </Button>
+                  {/* Edit modal */}
+                  <Modal
+                    isOpen={isEditModalOpen}
+                    onClose={() => {
+                      setIsEditModalOpen(false);
+                      setEditingExpense(null);
+                    }}
+                    title="Edit Expense"
+                  >
+                    {editingExpense && (
+                      <EditExpenseForm
+                        initialData={expense}
+                        categories={categoriesFetch}
+                        setIsModalOpen={setIsEditModalOpen}
+                        getExpenses={getExpenses}
+                        submitLabel="Update Expense"
+                      />
+                    )}
+                  </Modal>
+
+                  {/* Delete button */}
                   <Button
                     variant="danger"
                     size="small"
-                    onClick={() => handleDelete(expense)}
+                    onClick={() => {
+                      alert("hello"); // Temporary alert
+                      setIsDeleteModalOpen(true);
+                    }}
                   >
                     Delete
                   </Button>
+
+                  {/* Delete modal */}
+                  <Modal
+                    isOpen={isDeleteModalOpen}
+                    onClose={() => {
+                      setIsDeleteModalOpen(false);
+                    }}
+                    title="Delete Expense"
+                  >
+                    <CDeleteExpense
+                      expense={expense}
+                      getExpenses={getExpenses}
+                      setIsDeleteModalOpen={setIsDeleteModalOpen}
+                    />
+                  </Modal>
                 </div>
               </td>
             </tr>
@@ -172,78 +193,12 @@ export function CalendarExpenseTable({
         </tbody>
       </table>
 
+      {/* Pagination component */}
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
       />
-
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setEditingExpense(null);
-        }}
-        title="Edit Expense"
-      >
-        {editingExpense && (
-          <ExpenseForm
-            initialData={{
-              amount: editingExpense.amount.toString(),
-              description: editingExpense.description,
-              category: editingExpense.category,
-              date: formatDate(new Date(editingExpense.date)),
-            }}
-            onSubmit={handleUpdate}
-            onCancel={() => {
-              setIsEditModalOpen(false);
-              setEditingExpense(null);
-            }}
-            submitLabel="Update Expense"
-          />
-        )}
-      </Modal>
-
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false);
-          setDeletingExpense(null);
-        }}
-        title="Delete Expense"
-      >
-        <div style={{ padding: "1rem 0" }}>
-          <p style={{ marginBottom: "1.5rem", color: COLORS.text.primary }}>
-            Are you sure you want to delete this expense?
-          </p>
-          {deletingExpense && (
-            <p style={{ marginBottom: "1.5rem", color: COLORS.text.secondary }}>
-              <strong>{deletingExpense.description}</strong> -{" "}
-              {formatCurrency(deletingExpense.amount)}
-            </p>
-          )}
-          <div
-            style={{
-              display: "flex",
-              gap: "0.5rem",
-              justifyContent: "flex-end",
-            }}
-          >
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setIsDeleteModalOpen(false);
-                setDeletingExpense(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={confirmDelete}>
-              Delete
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </>
   );
 }
