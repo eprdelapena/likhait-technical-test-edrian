@@ -13,7 +13,19 @@ Rails.application.routes.draw do
   # root "posts#index"
 
   namespace :api do
-    resources :categories, only: [ :index ]
+    # config/routes.rb
+
+    # Defines RESTful routes for categories
+    # Only exposes the :index and :create actions
+    # This means only the following endpoints are available:
+    # 
+    # GET    /api/categories    -> maps to CategoriesController#index
+    # POST   /api/categories    -> maps to CategoriesController#create
+    #
+    # Explanation:
+    # - :index  => lists all categories (read-only)
+    # - :create => allows creating a new category (write)
+    resources :categories, only: [:index, :create]
     resources :expenses, only: [ :index, :create, :update, :destroy ]
   end
 end
