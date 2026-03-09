@@ -138,6 +138,16 @@ const validateExpense = (data: Partial<TCreateExpensePayload["expense"]>) => {
 
     if (!data?.date) {
         errors.date = "Date is required";
+    } else {
+        const today = new Date();
+        const inputDate = new Date(data.date);
+
+        today.setHours(0, 0, 0, 0);
+        inputDate.setHours(0, 0, 0, 0);
+
+        if (inputDate > today) {
+            errors.date = "Expense date cannot be in the future";
+        }
     }
 
     return errors; // Return validation errors (empty if valid)
