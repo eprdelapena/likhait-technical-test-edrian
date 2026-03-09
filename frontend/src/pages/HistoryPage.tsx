@@ -13,11 +13,13 @@ import { Modal, Button } from "../vibes";
 import { COLORS } from "../constants/colors";
 import useGetExpenses from "../hooks/expenses/useGetExpenses"
 import useGetCategories from "../hooks/categories/useGetCategories"
+import { PostCategoryForm } from "../components/PostCategoryForm";
 
 const HistoryPage: React.FC = () => {
 
   // Modal state for adding a new expense
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [categoryModal, setCategoryModal] = useState<boolean>(false);
 
   // Hook to fetch and manage expenses, filtering by year/month
   const {
@@ -31,7 +33,8 @@ const HistoryPage: React.FC = () => {
 
   // Hook to fetch categories from the backend
   const {
-    categoriesFetch
+    categoriesFetch,
+    getCategories
   } = useGetCategories();
 
   /**
@@ -108,9 +111,14 @@ const HistoryPage: React.FC = () => {
             onYearChange={handleYearChange}
           />
         </div>
-        <Button variant="primary" onClick={() => setIsModalOpen(true)}>
-          Add Expense
-        </Button>
+        <div style={{ display: "flex", gap: "16px" }}>
+          <Button variant="secondary" onClick={() => setCategoryModal(true)}>
+            Add Category
+          </Button>
+          <Button variant="primary" onClick={() => setIsModalOpen(true)}>
+            Add Expense
+          </Button>
+        </div>
       </div>
 
       {/* Month navigation component */}
@@ -157,6 +165,17 @@ const HistoryPage: React.FC = () => {
           getExpenses={getExpenses}
         />
       </Modal>
+      <Modal
+        isOpen={categoryModal}
+        onClose={() => setCategoryModal(false)}
+        title="Add Category"
+      >
+        <PostCategoryForm
+          setModal={setCategoryModal}
+          getCategories={getCategories}
+        />
+      </Modal>
+
     </div>
   );
 };
