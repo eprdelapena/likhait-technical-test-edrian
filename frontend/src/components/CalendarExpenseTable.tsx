@@ -165,7 +165,6 @@ export function CalendarExpenseTable({
                     variant="danger"
                     size="small"
                     onClick={() => {
-                      alert("hello"); // Temporary alert
                       setIsDeleteModalOpen(true);
                     }}
                   >
